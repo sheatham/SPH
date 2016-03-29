@@ -12,7 +12,7 @@ import matplotlib.pyplot as mpl
 #init conditions & params#
 ##########################
 
-n = 20 #sqrt num particles
+n = 10 #sqrt num particles
 
 #length
 maxx = 5
@@ -75,9 +75,18 @@ cs=1/rho
 #cs=sqrt(Gamma*B/rho)
 
 #File location parameters
-parentDir='/Users/sheacheatham/Research/2DSPH/run/'
+parentDir='/Users/sheacheatham/Research/2DSPH/run2/'
 imgDir='2DSPH'
 
+
+# making the neighbs optimization grid. creates empty lists in which particles will be put.
+#length = int((abs(maxx)+abs(minx)))
+#for i in range(0,maxx):
+#    for j in range(0,maxx):
+#        gridname = "" #clear out the previous command
+#        gridname = "gridnum" + str(i) + str(j) + " = []"
+#        globals()[gridname] = []
+  
 ##################
 #define functions#
 ##################
@@ -133,34 +142,11 @@ def find_neighbors(xr,yr,h,n):
     neighb_loc = np.zeros( (n*n,n*n), dtype=int)
     #creates a matrix i1[j1 j2] identifying which particle j's affect any give particle i.
     #                 i2[j1 j2]
+  
+#this is the approach for creating a fixed grid and only checking neighbor grids   
     
-#    boxnum = 5 # sqrt number of boxes to divide grid into
-#    boxlen = (maxx-minx)/(boxnum) # halflength of individual sides
-#    boxpt = 0 
-#    for i in range(n*n):
-#        top,bot,left,right = makebox(xr[i],yr[i])
-#        print right, left
-#        xdist = abs(right) + abs(left)
-#        ydist = abs(top) + abs(bot)
-#        for j in range(int(xdist)):
-#            dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
-#            if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
-#                    neighb_loc[i,neighbs[i]] = j
-#                    neighbs[i]+=1
-#        while boxpt+boxlen < maxx:
-#            for j in range(int(boxpt),int(boxpt+boxlen)):  
-#                dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
-#                if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
-#                    neighb_loc[i,neighbs[i]] = j
-#                    neighbs[i]+=1
-#                elif np.fabs(yr[i]-yr[j]) < 2.0*h:#
-#                    neighb_loc[i,neighbs[i]] = j
-#                    neighbs[i]+=1
-#            boxpt+=boxlen
-#      
-#    return(neighbs,neighb_loc)
-    
-    
+
+#this is the brute force approach    
     for i in range(n*n):
         for j in range(n*n):
             dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
@@ -173,33 +159,18 @@ def find_neighbors(xr,yr,h,n):
                 
     return(neighbs,neighb_loc)
 
-def makebox(xrnum,yrnum):    
-    boxnum = 5
-    boxlen = (maxx-minx)/(2.0*boxnum) # halflength of individual sides constructing the boxes
-    left = xrnum-boxlen
-    right = xrnum+boxlen
-    up = yrnum+boxlen
-    down = yrnum-boxlen
-    #what to do about boundary part
-    if left <= minx:
-        left = minx
-    else:
-        left = left
-    if right >= maxx:
-        right = maxx
-    else:
-       right = right
-    if up >= maxx:
-        up = maxx
-    else:
-        up = up
-    if down <= minx:
-        down = minx
-    else:
-        down = down
-    print up,down,left,right
-    return up, down, left, right
-    #return int(abs(up-down)), int((abs(right-left)))
+
+def makeboxes():
+    num = (maxx+abs(minx))
+    boxes = [ [] for n in range(num) ]
+    return boxes
+
+#determine which box each particle should be put in
+def loc_particles(xr,yr):
+    for i in range(xr):
+        xkey = int(floor(xr[i]))
+        ykey = int(floor(yr[i]))
+
     
 
 #get smoothed density
@@ -299,15 +270,15 @@ def Output(j,rho,xr,yr,t):
 def boundf(xaccels,yaccels,xr,yr):
     kc = 300 #spring constant force for wall. The larger this number, the smaller the timestep has to be.
     for i in range(len(xaccels)):
-        if (xr[i] > maxx+1):
+        if (xr[i] > maxx):
             xaccels[i]=xaccels[i]-kc*abs(xr[i])
-        elif (xr[i] < minx-1):
+        elif (xr[i] < minx):
             xaccels[i]=xaccels[i]+kc*abs(xr[i])
         else:
             xr[i]=xr[i]
-        if (yr[i] > maxx+1):
+        if (yr[i] > maxx):
             yaccels[i]=yaccels[i]-kc*abs(yr[i])
-        elif (yr[i] < minx-1):
+        elif (yr[i] < minx):
             yaccels[i]=yaccels[i]+kc*abs(yr[i])
             #print yaccels[i],yr[i]
         else:
