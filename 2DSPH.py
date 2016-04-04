@@ -144,32 +144,61 @@ def find_neighbors(xr,yr,h,n):
     #                 i2[j1 j2]
   
 #this is the approach for creating a fixed grid and only checking neighbor grids   
-    
-
+    boxes = loc_particles(xr,yr);
+    checkboxes = []
+#    for i in range(len(boxes)):
+    for i in range(1,2,1):
+        for j in range(len(boxes)):
+            neighborBoxes = frozenset([i-11,i-10,i-9,i-1,i,i+1,i+9,i+10,i+11])
+            if j in neighborBoxes:
+                checkboxes.append(j)#now we have our neighboring boxes
+            for j in range(len(boxes[i])): #now we have our particle in question
+                boxes[i][j]
+            
+            
+            
+ 
 #this is the brute force approach    
-    for i in range(n*n):
-        for j in range(n*n):
-            dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
-            if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
-                neighb_loc[i,neighbs[i]] = j
-                neighbs[i]+=1
-            elif np.fabs(yr[i]-yr[j]) < 2.0*h:
-                neighb_loc[i,neighbs[i]] = j
-                neighbs[i]+=1
-                
-    return(neighbs,neighb_loc)
+#    for i in range(n*n):
+#        for j in range(n*n):
+#            dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
+#            if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
+#                neighb_loc[i,neighbs[i]] = j
+#                neighbs[i]+=1
+#            elif np.fabs(yr[i]-yr[j]) < 2.0*h:
+#                neighb_loc[i,neighbs[i]] = j
+#                neighbs[i]+=1
+#                
+#    return(neighbs,neighb_loc)
 
-
+#make the grid
 def makeboxes():
     num = (maxx+abs(minx))
-    boxes = [ [] for n in range(num) ]
+    boxes = [ [] for n in range(num*num) ]
     return boxes
 
 #determine which box each particle should be put in
 def loc_particles(xr,yr):
-    for i in range(xr):
+    boxes = makeboxes()
+    particlenum = 0
+    for i in range(len(xr)):
         xkey = int(floor(xr[i]))
         ykey = int(floor(yr[i]))
+        if xkey >= maxx:
+            xkey = maxx-1
+        elif xkey <= minx:
+            xkey = minx+1
+        if ykey >= maxx:
+            ykey = maxx-1
+        elif ykey <= minx:
+            ykey = minx+1
+        box = xkey- 10*ykey + 45 #this is intimately related to the maxx and minx values. don't mess with them.
+        position=xr[i],yr[i]
+        boxes[box].append(position)
+        particlenum += 1
+    print particlenum #just making sure particles are conserved
+    return  boxes
+
 
     
 
