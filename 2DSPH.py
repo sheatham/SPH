@@ -145,11 +145,15 @@ def find_neighbors(xr,yr,h,n):
   
 #this is the approach for creating a fixed grid and only checking neighbor grids   
     boxes = loc_particles(xr,yr);
+    top, bottom, left, right = edge_boxes()
     checkboxes = []
-#    for i in range(len(boxes)):
-    for i in range(1,2,1):
+    num = (maxx+abs(minx))
+    for i in range(len(boxes)):
         for j in range(len(boxes)):
-            neighborBoxes = frozenset([i-11,i-10,i-9,i-1,i,i+1,i+9,i+10,i+11])
+            for k in range(len(boxes[i])): #found particle in box
+                
+            
+            neighborBoxes = frozenset([i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)])#all specific to maxxminset
             if j in neighborBoxes:
                 checkboxes.append(j)#now we have our neighboring boxes
             for j in range(len(boxes[i])): #now we have our particle in question
@@ -177,10 +181,25 @@ def makeboxes():
     boxes = [ [] for n in range(num*num) ]
     return boxes
 
+def edge_boxes(): #gives box numbers for edge boxes
+    top = []
+    bottom = []
+    left = []
+    right = []
+    for k in range(1,num):
+        tops = 0 + k
+        bottoms = num**2-(num-k)
+        lefts = num*k
+        rights = num*k - 1
+        top.append(top)
+        bottom.append(bottom)
+        left.append(left)
+        right.append(right)
+    return top, bottom, left, right
+
 #determine which box each particle should be put in
 def loc_particles(xr,yr):
     boxes = makeboxes()
-    particlenum = 0
     for i in range(len(xr)):
         xkey = int(floor(xr[i]))
         ykey = int(floor(yr[i]))
@@ -195,8 +214,6 @@ def loc_particles(xr,yr):
         box = xkey- 10*ykey + 45 #this is intimately related to the maxx and minx values. don't mess with them.
         position=xr[i],yr[i]
         boxes[box].append(position)
-        particlenum += 1
-    print particlenum #just making sure particles are conserved
     return  boxes
 
 
