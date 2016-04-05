@@ -12,7 +12,7 @@ import matplotlib.pyplot as mpl
 #init conditions & params#
 ##########################
 
-n = 10 #sqrt num particles
+n = 15 #sqrt num particles
 
 #length
 maxx = 5
@@ -150,7 +150,7 @@ def find_neighbors(xr,yr,h,n):
     num = (maxx+abs(minx))
     xs=0
     ys=1
-#    for i in range(len(boxes)):
+#    for i in range(2,3,1):
     for i in range(len(boxes)):
         neighborBoxes = [i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
         for j in range(len(boxes[i])): #j is particle in question
@@ -159,21 +159,19 @@ def find_neighbors(xr,yr,h,n):
                     checkboxes.append(k) #just a check to make sure the right boxes are identified
                     for l in range(len(boxes[k])): #num particles in the neighbor box
                         dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
-                        print dist
-                        if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
-                            neighb_loc[i,neighbs[i]] = j
-                            neighbs[i]+=1
-                        elif np.fabs(yr[i]-yr[j]) < 2.0*h:
-                            neighb_loc[i,neighbs[i]] = j
-                            neighbs[i]+=1                        
-            
+                        if dist < 2.0*h: #or np.fabs(xr[i]-xr[j]): 
+                            neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
+                            neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its stuck 'number'                   
+                        #elif np.fabs(yr[i]-yr[j]) < 2.0*h:
+                        #    neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
+                        #    neighbs[boxes[i][j][2]]+=1                             
     return(neighbs,neighb_loc)        
  
 #this is the brute force approach    
 #    for i in range(n*n):
 #        for j in range(n*n):
 #            dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
-#            if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
+#            if dist < 2.0*h: or np.fabs(xr[i]-xr[j]) < 2.0*h: 
 #                neighb_loc[i,neighbs[i]] = j
 #                neighbs[i]+=1
 #            elif np.fabs(yr[i]-yr[j]) < 2.0*h:
@@ -182,11 +180,6 @@ def find_neighbors(xr,yr,h,n):
 #                
 #    return(neighbs,neighb_loc)
 
-#make the grid
-def makeboxes():
-    num = (maxx+abs(minx))
-    boxes = [ [] for n in range(num*num) ]
-    return boxes
 
 def edge_boxes(): #gives box numbers for edge boxes
     top = []
@@ -204,23 +197,27 @@ def edge_boxes(): #gives box numbers for edge boxes
         right.append(right)
     return top, bottom, left, right
 
-#determine which box each particle should be put in
+#make grid, determine which box each particle should be put in
 def loc_particles(xr,yr):
-    boxes = makeboxes()
+    num = (maxx+abs(minx))
+    boxes = [ [] for n in range(num*num) ]
     for i in range(len(xr)):
         xkey = int(floor(xr[i]))
         ykey = int(floor(yr[i]))
         if xkey >= maxx:
             xkey = maxx-1
-        elif xkey <= minx:
+        if xkey <= minx:
             xkey = minx+1
         if ykey >= maxx:
             ykey = maxx-1
-        elif ykey <= minx:
+        if ykey <= minx:
             ykey = minx+1
-        box = xkey- 10*ykey + 45 #this is intimately related to the maxx and minx values. don't mess with them.
-        position=xr[i],yr[i]
+        #print xr,yr
+        box = xkey- 10*ykey + 45 #this is specific to the maxx and minx values. don't mess with them.
+        position=xr[i],yr[i],i
         boxes[box].append(position)
+        #boxes[box] = position
+        print boxes[box]
     return  boxes
 
 
@@ -229,7 +226,7 @@ def loc_particles(xr,yr):
 #get smoothed density
 def get_density(xr,yr,h,n,m,neighbs,neighb_loc):
     
-    avrho=np.zeros(n*n) 
+    avrho=np.ones(n*n) 
     for i in range(n*n):
         #for j in range(n):
         for j in range(neighbs[i]):
@@ -248,14 +245,14 @@ def get_visc(xr,yr,h,vx,vy,rho,cs,neighbs,neighb_loc):
     for i in range(n*n):
         #for j in range(n):
         for j in range(neighbs[i]):
-            vij = sqrt((vx[i]-vx[neighb_loc[i,j]])**2 + (vy[i]-vy[neighb_loc[i,j]])**2) #make sure
+            vij = sqrt((vx[i]-vx[neighb_loc[i,j]])**2 + (vy[i]-vy[neighb_loc[i,j]])**2) 
             rij = sqrt((xr[neighb_loc[i,j]]-xr[i])**2+(yr[neighb_loc[i,j]]-yr[i])**2)
             #print vij, rij
             if (vij*rij < 0.):
                 mew = h * vij*rij/(rij**2 + (0.1*h)**2)
-                cij = 0.5*(cs[i]+cs[neighb_loc[i,j]]) #mean speed of sound, this should be fine
-                rhoij = 0.5*(rho[i]+rho[neighb_loc[i,j]]) #mean density for i & j, should also be fine
-                av[i,neighb_loc[i,j]] = (-alpha*cij*mew + beta*mew**2)/rhoij   
+                cij = 0.5*(cs[i]+cs[neighb_loc[i,j]]) 
+                rhoij = 0.5*(rho[i]+rho[neighb_loc[i,j]])
+                av[i,neighb_loc[i,j]] = (-alpha*cij*mew + beta*mew**2)/rhoij #divide by zero eror?
     return av
 
 #get acceleration for each particle
@@ -271,7 +268,6 @@ def get_accel(n,neighbs,neighb_loc,press,rho,m,xr,yr,h):
             kernx, kerny = gradkernel(rijx,rijy,h)
             xaccels[i] -= m[k] * (press[i]/rho[i]**2 + press[k]/rho[k]**2 + av[i,k]) * kernx
             yaccels[i] -= m[k] * (press[i]/rho[i]**2 + press[k]/rho[k]**2 + av[i,k]) * kerny
-            #print(i,j,accels[i])
     return xaccels, yaccels
     
 #get energy/dt
@@ -340,31 +336,31 @@ def boundf(xaccels,yaccels,xr,yr):
 
 #cylindrical boundary
 
-def cylboundf(xaccels,yaccels,xr,yr):
-    kc = 300
-    for i in range(len(xr)):
-        if xr[i]**2+yr[i]**2 > maxx**2:
-            if xr[i] < 0:
-                xaccels[i]=xaccels[i]+kc*abs(xr[i])
-            elif xr[i] > 0:
-                xaccels[i]=xaccels[i]-kc*xr[i]
-            if yr[i] < 0 :
-                yaccels[i] = yaccels[i]+kc*abs(yr[i])
-            elif yr[i] > 0:
-                yaccels[i]=yaccels[i]-kc*yr[i]
-    return xaccels, yaccels
+#def cylboundf(xaccels,yaccels,xr,yr):
+#    kc = 300
+#    for i in range(len(xr)):
+#        if xr[i]**2+yr[i]**2 > maxx**2:
+#            if xr[i] < 0:
+#                xaccels[i]=xaccels[i]+kc*abs(xr[i])
+#            elif xr[i] > 0:
+#                xaccels[i]=xaccels[i]-kc*xr[i]
+#            if yr[i] < 0 :
+#                yaccels[i] = yaccels[i]+kc*abs(yr[i])
+#            elif yr[i] > 0:
+#                yaccels[i]=yaccels[i]-kc*yr[i]
+#    return xaccels, yaccels
 
 
-def f(xr,yr,vx,vy):
-    for i in range(len(xr)):
-        r=sqrt((xr[i])**2+(yr[i])**2)
-        theta = arctan(yr[i]/xr[i])
-        vtheta=10
-        if r < maxx:
-            vx[i] = vtheta*sin(theta)*r + vx[i]
-            vy[i] = vtheta*cos(theta)*r + vy[i]
-            print vx[i],vy[i]
-    return vx,vy
+#def f(xr,yr,vx,vy):
+#    for i in range(len(xr)):
+#        r=sqrt((xr[i])**2+(yr[i])**2)
+#        theta = arctan(yr[i]/xr[i])
+#        vtheta=10
+#        if r < maxx:
+#            vx[i] = vtheta*sin(theta)*r + vx[i]
+#            vy[i] = vtheta*cos(theta)*r + vy[i]
+#            print vx[i],vy[i]
+#    return vx,vy
 
 #initial setup
 
@@ -411,7 +407,7 @@ while t < maxt:
     (neighbs,neighb_loc) = find_neighbors(xr,yr,h,n)
     
     #density update
-    rho = get_density(xr,yr,h,n,m,neighbs,neighb_loc) 
+    rho = get_density(xr,yr,h,n,m,neighbs,neighb_loc)
     
     #pressure update
     P = k*rho
