@@ -148,19 +148,26 @@ def find_neighbors(xr,yr,h,n):
     top, bottom, left, right = edge_boxes()
     checkboxes = []
     num = (maxx+abs(minx))
+    xs=0
+    ys=1
+#    for i in range(len(boxes)):
     for i in range(len(boxes)):
-        for j in range(len(boxes)):
-            for k in range(len(boxes[i])): #found particle in box
-                
+        neighborBoxes = [i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
+        for j in range(len(boxes[i])): #j is particle in question
+            for k in range(len(boxes)):
+                if k in neighborBoxes: #if one of the other boxes is a neighbor box
+                    checkboxes.append(k) #just a check to make sure the right boxes are identified
+                    for l in range(len(boxes[k])): #num particles in the neighbor box
+                        dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
+                        print dist
+                        if dist < 2.0*h or np.fabs(xr[i]-xr[j]) < 2.0*h: 
+                            neighb_loc[i,neighbs[i]] = j
+                            neighbs[i]+=1
+                        elif np.fabs(yr[i]-yr[j]) < 2.0*h:
+                            neighb_loc[i,neighbs[i]] = j
+                            neighbs[i]+=1                        
             
-            neighborBoxes = frozenset([i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)])#all specific to maxxminset
-            if j in neighborBoxes:
-                checkboxes.append(j)#now we have our neighboring boxes
-            for j in range(len(boxes[i])): #now we have our particle in question
-                boxes[i][j]
-            
-            
-            
+    return(neighbs,neighb_loc)        
  
 #this is the brute force approach    
 #    for i in range(n*n):
