@@ -18,6 +18,8 @@ n = 15 #sqrt num particles
 maxx = 5
 minx = -maxx
 
+num = (maxx+abs(minx)) #number of grid boxes
+
 #courant safety factor
 #csf= 0.05 #variable? up to 0.3. for var timestep
 
@@ -147,21 +149,29 @@ def find_neighbors(xr,yr,h,n):
     boxes = loc_particles(xr,yr);
     top, bottom, left, right = edge_boxes()
     checkboxes = []
-    num = (maxx+abs(minx))
     xs=0
     ys=1
 #    for i in range(2,3,1):
     for i in range(len(boxes)):
-        neighborBoxes = [i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
-        for j in range(len(boxes[i])): #j is particle in question
-            for k in range(len(boxes)):
-                if k in neighborBoxes: #if one of the other boxes is a neighbor box
-                    checkboxes.append(k) #just a check to make sure the right boxes are identified
-                    for l in range(len(boxes[k])): #num particles in the neighbor box
-                        dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
-                        if dist < 2.0*h: #or np.fabs(xr[i]-xr[j]): 
-                            neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
-                            neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its stuck 'number'                   
+        if i in top:
+            neighborBoxes=[i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
+        if i in bottom:
+            neighborBoxes=[i-(num+1),i-num,i-(num-1),i-1,i,i+1]
+        if i in left:
+            neighborBoxes=[i-num,i-(num-1),i,i+1,i+num,i+(num+1)]
+        if i in right:
+            neighborBoxes=[]
+        else:
+            neighborBoxes = [i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
+            for j in range(len(boxes[i])): #j is particle in question
+                for k in range(len(boxes)):
+                    if k in neighborBoxes: #if one of the other boxes is a neighbor box
+                        checkboxes.append(k) #just a check to make sure the right boxes are identified
+                        for l in range(len(boxes[k])): #num particles in the neighbor box
+                            dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
+                            if dist < 2.0*h: #or np.fabs(xr[i]-xr[j]): 
+                                neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
+                                neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its 'number'                   
                         #elif np.fabs(yr[i]-yr[j]) < 2.0*h:
                         #    neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
                         #    neighbs[boxes[i][j][2]]+=1                             
@@ -199,7 +209,6 @@ def edge_boxes(): #gives box numbers for edge boxes
 
 #make grid, determine which box each particle should be put in
 def loc_particles(xr,yr):
-    num = (maxx+abs(minx))
     boxes = [ [] for n in range(num*num) ]
     for i in range(len(xr)):
         xkey = int(floor(xr[i]))
@@ -212,12 +221,9 @@ def loc_particles(xr,yr):
             ykey = maxx-1
         if ykey <= minx:
             ykey = minx+1
-        #print xr,yr
         box = xkey- 10*ykey + 45 #this is specific to the maxx and minx values. don't mess with them.
         position=xr[i],yr[i],i
         boxes[box].append(position)
-        #boxes[box] = position
-        print boxes[box]
     return  boxes
 
 
@@ -226,7 +232,7 @@ def loc_particles(xr,yr):
 #get smoothed density
 def get_density(xr,yr,h,n,m,neighbs,neighb_loc):
     
-    avrho=np.ones(n*n) 
+    avrho=np.zeros(n*n) 
     for i in range(n*n):
         #for j in range(n):
         for j in range(neighbs[i]):
