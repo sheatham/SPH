@@ -12,7 +12,7 @@ import matplotlib.pyplot as mpl
 #init conditions & params#
 ##########################
 
-n = 15 #sqrt num particles
+n = 20 #sqrt num particles
 
 #length
 maxx = 5
@@ -151,7 +151,6 @@ def find_neighbors(xr,yr,h,n):
     checkboxes = []
     xs=0
     ys=1
-#    for i in range(2,3,1):
     for i in range(len(boxes)):
         if i in top:
             neighborBoxes=[i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
@@ -160,18 +159,18 @@ def find_neighbors(xr,yr,h,n):
         if i in left:
             neighborBoxes=[i-num,i-(num-1),i,i+1,i+num,i+(num+1)]
         if i in right:
-            neighborBoxes=[]
+            neighborBoxes=[i-1,i,i-num,i-(num+1),i+(num-1),i+num]
         else:
             neighborBoxes = [i-(num+1),i-num,i-(num-1),i-1,i,i+1,i+(num-1),i+num,i+(num+1)]
-            for j in range(len(boxes[i])): #j is particle in question
-                for k in range(len(boxes)):
-                    if k in neighborBoxes: #if one of the other boxes is a neighbor box
-                        checkboxes.append(k) #just a check to make sure the right boxes are identified
-                        for l in range(len(boxes[k])): #num particles in the neighbor box
-                            dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
-                            if dist < 2.0*h: #or np.fabs(xr[i]-xr[j]): 
-                                neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
-                                neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its 'number'                   
+        for j in range(len(boxes[i])): #j is particle in question
+            for k in range(len(boxes)):
+                if k in neighborBoxes: #if one of the other boxes is a neighbor box
+                    checkboxes.append(k) #just a check to make sure the right boxes are identified
+                    for l in range(len(boxes[k])): #num particles in the neighbor box
+                        dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
+                        if dist < 2.0*h: #or np.fabs(xr[i]-xr[j]): 
+                            neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
+                            neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its 'number'                   
                         #elif np.fabs(yr[i]-yr[j]) < 2.0*h:
                         #    neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
                         #    neighbs[boxes[i][j][2]]+=1                             
@@ -357,16 +356,16 @@ def boundf(xaccels,yaccels,xr,yr):
 #    return xaccels, yaccels
 
 
-#def f(xr,yr,vx,vy):
-#    for i in range(len(xr)):
-#        r=sqrt((xr[i])**2+(yr[i])**2)
-#        theta = arctan(yr[i]/xr[i])
-#        vtheta=10
-#        if r < maxx:
-#            vx[i] = vtheta*sin(theta)*r + vx[i]
-#            vy[i] = vtheta*cos(theta)*r + vy[i]
-#            print vx[i],vy[i]
-#    return vx,vy
+def f(xr,yr,vx,vy):
+    for i in range(len(xr)):
+        r=sqrt((xr[i])**2+(yr[i])**2)
+        theta = arctan(yr[i]/xr[i])
+        vtheta=1000
+        if r < maxx:
+            vx[i] += vtheta*sin(theta)/r
+            vy[i] += vtheta*cos(theta)/r
+            print vx[i],vy[i] 
+    return vx,vy
 
 #initial setup
 
@@ -399,11 +398,11 @@ while t < maxt:
     vhy = np.array([vhy.flatten()]).T
     #energies = get_energy(n,neighbs,neighb_loc,v,r,P,rho,av,h)
     #energies = bcs(energies,boundary,0.0)
- 
+    
     #vel update
     vx = vhx + 0.5*dt*xaccels
     vy = vhy + 0.5*dt*yaccels
-    #vx,vy = f(xr,yr,vx,vy)
+    vx,vy = f(xr,yr,vx,vy)
     
     #position update
     xr = xr + dt*vhx
