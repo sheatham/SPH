@@ -12,7 +12,7 @@ import matplotlib.pyplot as mpl
 #init conditions & params#
 ##########################
 
-n = 20 #sqrt num particles
+n = 30 #sqrt num particles
 
 #length
 maxx = 5
@@ -168,27 +168,11 @@ def find_neighbors(xr,yr,h,n):
                     checkboxes.append(k) #just a check to make sure the right boxes are identified
                     for l in range(len(boxes[k])): #num particles in the neighbor box
                         dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
-                        if dist < 2.0*h: #or np.fabs(xr[i]-xr[j]): 
+                        if dist < 2.0*h:
                             neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
                             neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its 'number'                   
-                        #elif np.fabs(yr[i]-yr[j]) < 2.0*h:
-                        #    neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
-                        #    neighbs[boxes[i][j][2]]+=1                             
+                          
     return(neighbs,neighb_loc)        
- 
-#this is the brute force approach    
-#    for i in range(n*n):
-#        for j in range(n*n):
-#            dist=sqrt((xr[i]-xr[j])**2+(yr[i]-yr[j])**2)
-#            if dist < 2.0*h: or np.fabs(xr[i]-xr[j]) < 2.0*h: 
-#                neighb_loc[i,neighbs[i]] = j
-#                neighbs[i]+=1
-#            elif np.fabs(yr[i]-yr[j]) < 2.0*h:
-#                neighb_loc[i,neighbs[i]] = j
-#                neighbs[i]+=1
-#                
-#    return(neighbs,neighb_loc)
-
 
 def edge_boxes(): #gives box numbers for edge boxes
     top = []
@@ -341,31 +325,30 @@ def boundf(xaccels,yaccels,xr,yr):
 
 #cylindrical boundary
 
-#def cylboundf(xaccels,yaccels,xr,yr):
-#    kc = 300
-#    for i in range(len(xr)):
-#        if xr[i]**2+yr[i]**2 > maxx**2:
-#            if xr[i] < 0:
-#                xaccels[i]=xaccels[i]+kc*abs(xr[i])
-#            elif xr[i] > 0:
-#                xaccels[i]=xaccels[i]-kc*xr[i]
-#            if yr[i] < 0 :
-#                yaccels[i] = yaccels[i]+kc*abs(yr[i])
-#            elif yr[i] > 0:
-#                yaccels[i]=yaccels[i]-kc*yr[i]
-#    return xaccels, yaccels
-
-
-def f(xr,yr,vx,vy):
+def cylboundf(xaccels,yaccels,xr,yr):
+    kc = 200
     for i in range(len(xr)):
-        r=sqrt((xr[i])**2+(yr[i])**2)
-        theta = arctan(yr[i]/xr[i])
-        vtheta=1000
-        if r < maxx:
-            vx[i] += vtheta*sin(theta)/r
-            vy[i] += vtheta*cos(theta)/r
-            print vx[i],vy[i] 
-    return vx,vy
+        if xr[i]**2+yr[i]**2 > maxx**2:
+            if xr[i] < 0:
+                xaccels[i]=xaccels[i]+kc*abs(xr[i])
+            elif xr[i] > 0:
+                xaccels[i]=xaccels[i]-kc*xr[i]
+            if yr[i] < 0 :
+                yaccels[i] = yaccels[i]+kc*abs(yr[i])
+            elif yr[i] > 0:
+                yaccels[i]=yaccels[i]-kc*yr[i]
+    return xaccels, yaccels
+
+#def f(xr,yr,vx,vy):
+#    for i in range(len(xr)):
+#        r=sqrt((xr[i])**2+(yr[i])**2)
+#        theta = arctan(yr[i]/xr[i])
+#        vtheta=1000
+#        if r < maxx:
+#            vx[i] += vtheta*sin(theta)/r
+#            vy[i] += vtheta*cos(theta)/r
+#            print vx[i],vy[i] 
+#    return vx,vy
 
 #initial setup
 
@@ -389,7 +372,7 @@ while t < maxt:
     xaccels, yaccels = get_accel(n,neighbs,neighb_loc,P,rho,m,xr,yr,h)
     xaccels = np.array([xaccels.flatten()]).T
     yaccels = np.array([yaccels.flatten()]).T
-    xaccels, yaccels = boundf(xaccels,yaccels,xr,yr)
+    xaccels, yaccels = cylboundf(xaccels,yaccels,xr,yr)
 
     #halfstep update
     vhx = vhx + dt*xaccels #v at t-(dt/2) to v at t+(dt/2)
@@ -402,7 +385,7 @@ while t < maxt:
     #vel update
     vx = vhx + 0.5*dt*xaccels
     vy = vhy + 0.5*dt*yaccels
-    vx,vy = f(xr,yr,vx,vy)
+    #vx,vy = f(xr,yr,vx,vy)
     
     #position update
     xr = xr + dt*vhx
