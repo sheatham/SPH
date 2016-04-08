@@ -33,13 +33,8 @@ vhx = np.array([vhx.flatten()]).T
 vhy = np.zeros(n*n)
 vhy = np.array([vhy.flatten()]).T
 
-xr0 = np.linspace(minx,maxx,n) #init particle spacing (even)
-yr0 = np.linspace(minx,maxx,n)
-xr, yr = np.meshgrid(xr0,yr0)
-xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
-#r=np.array([xr.flatten(),yr.flatten()]).T
 
-mag=np.zeros(n*n,dtype=int) #magnitude of r vector
+#mag=np.zeros(n*n,dtype=int) #magnitude of r vector
 
 #init analytical densities
 rho = np.ones(n*n)
@@ -326,7 +321,7 @@ def boundf(xaccels,yaccels,xr,yr):
 #cylindrical boundary
 
 def cylboundf(xaccels,yaccels,xr,yr):
-    kc = 200
+    kc = 20
     for i in range(len(xr)):
         if xr[i]**2+yr[i]**2 > maxx**2:
             if xr[i] < 0:
@@ -339,8 +334,21 @@ def cylboundf(xaccels,yaccels,xr,yr):
                 yaccels[i]=yaccels[i]-kc*yr[i]
     return xaccels, yaccels
 
+def cylboundpos(xr0,yr0):
+    indexx = []
+    indexy = []
+    for i in range(len(xr0)):
+        if xr0[i]**2+yr0[i]**2 > maxx**2:
+            indexx.append(xr[i])
+            indexy.append(yr[i])        
+    xr0 = np.delete(xr, indexx)
+    yr0 = np.delete(yr, indexy)
+    return xr0,yr0
+         
+
+
 #def f(xr,yr,vx,vy):
-#    for i in range(len(xr)):
+#    for i in range(len(xr)): 
 #        r=sqrt((xr[i])**2+(yr[i])**2)
 #        theta = arctan(yr[i]/xr[i])
 #        vtheta=1000
@@ -351,6 +359,11 @@ def cylboundf(xaccels,yaccels,xr,yr):
 #    return vx,vy
 
 #initial setup
+xr0 = np.linspace(minx,maxx,n) #init particle spacing (even)
+yr0 = np.linspace(minx,maxx,n)
+xr0,yr0 = cylboundpos(xr0,yr0)
+xr, yr = np.meshgrid(xr0,yr0)
+xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
 
 (neighbs,neighb_loc) = find_neighbors(xr,yr,h,n)#obtain init neighbors
 rho = get_density(xr,yr,h,n,m,neighbs,neighb_loc)
