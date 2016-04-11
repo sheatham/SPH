@@ -7,49 +7,18 @@
 import sys
 import numpy as np
 import matplotlib.pyplot as mpl
-
+import scipy.interpolate
 ##########################
 #init conditions & params#
 ##########################
 
-n = 30 #sqrt num particles
+n = 40 #sqrt num particles
 
 #length
 maxx = 5
 minx = -maxx
 
 num = (maxx+abs(minx)) #number of grid boxes
-
-#courant safety factor
-#csf= 0.05 #variable? up to 0.3. for var timestep
-
-vx = np.zeros(n*n)+30
-vx = np.array([vx.flatten()]).T
-vy = np.zeros(n*n)+30
-vy = np.array([vy.flatten()]).T
-
-vhx = np.zeros(n*n) #v at half time step
-vhx = np.array([vhx.flatten()]).T
-vhy = np.zeros(n*n)
-vhy = np.array([vhy.flatten()]).T
-
-
-#mag=np.zeros(n*n,dtype=int) #magnitude of r vector
-
-#init analytical densities
-rho = np.ones(n*n)
-rho = np.array([rho.flatten()]).T
-#rho[0:30] = 15
-
-dx = xr[1]-xr[0] #init space between two particles
-dx = dx[0]
-h = dx*2.0 #smoothing length; decrease with fewer particles
-m = dx*rho[:] #mass per particle from density
-
-#init pressure
-
-k=1.0
-P = k*rho
 
 ########################################
 #specific internal energy for ideal gas law formulation of pressure
@@ -64,12 +33,6 @@ P = k*rho
 #P = (gamma-1.0)*rho*eps
 ########################################
 ########################################
-
-
-#speed of sound
-#cs = sqrt(Gamma*(P+B)/rho)
-cs=1/rho
-#cs=sqrt(Gamma*B/rho)
 
 #File location parameters
 parentDir='/Users/sheacheatham/Research/2DSPH/run2/'
@@ -204,9 +167,6 @@ def loc_particles(xr,yr):
         boxes[box].append(position)
     return  boxes
 
-
-    
-
 #get smoothed density
 def get_density(xr,yr,h,n,m,neighbs,neighb_loc):
     
@@ -289,9 +249,13 @@ def get_accel(n,neighbs,neighb_loc,press,rho,m,xr,yr,h):
 #saving images
 def Output(j,rho,xr,yr,t):
     print(j,t,dt)
+#    xrs  = np.reshape(xr,(n,n))
+#    yrs  = np.reshape(yr,(n,n))
+#    Ps = np.reshape(P,(n,n))
     mpl.clf()
-    mpl.plot(xr,yr,".")
-    mpl.axis([-16,16,-16,16])
+    mpl.contour(xrs,yrs,Ps,offset=-100, cmap=cm.coolwarm)
+    #mpl.plot(xr,yr,".")
+    mpl.axis([-9,9,-9,9])
     pause(0.0001)
     if j==1 or j % 1 == 0:
         jstr=str(j);
@@ -299,7 +263,30 @@ def Output(j,rho,xr,yr,t):
             jstr='0'+jstr
         imgfile=parentDir+imgDir+'img'+jstr+'.png'
         savefig(imgfile)
-        
+
+def POutput(xr,yr,P):
+    print(j,t,dt)
+    #set up interpolation points
+    xi, yi = np.linspace(xr.min(), xr.max(), 100), np.linspace(yr.min(), yr.max(), 100)
+    xi, yi = np.meshgrid(xi, yi)
+
+    #Interpolate
+    rbf = scipy.interpolate.Rbf(xr, yr, P, function='linear')
+    Pi = rbf(xi, yi)
+    
+    mpl.clf()
+    mpl.imshow(Pi, vmin=P.min(), vmax=P.max(), origin='lower',extent=[xr.min(), xr.max(), yr.min(), yr.max()])
+    #mpl.scatter(xr, yr, c=P)
+    mpl.colorbar()
+    mpl.show()
+    pause(0.0001)
+    if j==1 or j % 1 == 0:
+        jstr=str(j);
+        while len(jstr)<4:
+            jstr='0'+jstr
+        imgfile=parentDir+imgDir+'img'+jstr+'.png'
+        savefig(imgfile)
+
 def boundf(xaccels,yaccels,xr,yr):
     kc = 300 #spring constant force for wall. The larger this number, the smaller the timestep has to be.
     for i in range(len(xaccels)):
@@ -313,13 +300,11 @@ def boundf(xaccels,yaccels,xr,yr):
             yaccels[i]=yaccels[i]-kc*abs(yr[i])
         elif (yr[i] < minx):
             yaccels[i]=yaccels[i]+kc*abs(yr[i])
-            #print yaccels[i],yr[i]
         else:
             yr[i]=yr[i]
     return xaccels, yaccels
 
 #cylindrical boundary
-
 def cylboundf(xaccels,yaccels,xr,yr):
     kc = 20
     for i in range(len(xr)):
@@ -335,38 +320,78 @@ def cylboundf(xaccels,yaccels,xr,yr):
     return xaccels, yaccels
 
 def cylboundpos(xr0,yr0):
+    index = []
     indexx = []
     indexy = []
     for i in range(len(xr0)):
         if xr0[i]**2+yr0[i]**2 > maxx**2:
-            indexx.append(xr[i])
-            indexy.append(yr[i])        
-    xr0 = np.delete(xr, indexx)
-    yr0 = np.delete(yr, indexy)
-    return xr0,yr0
+            indexx.append(xr0[i])
+            indexy.append(yr0[i])
+            index.append(i)
+    xr0 = np.delete(xr0, indexx)
+    yr0 = np.delete(yr0, indexy)
+    return xr0,yr0,index
          
 
 
 #def f(xr,yr,vx,vy):
-#    for i in range(len(xr)): 
+#    for i in range(len(xr)):
 #        r=sqrt((xr[i])**2+(yr[i])**2)
 #        theta = arctan(yr[i]/xr[i])
 #        vtheta=1000
 #        if r < maxx:
-#            vx[i] += vtheta*sin(theta)/r
+#            vx[i] -= vtheta*sin(theta)/r
 #            vy[i] += vtheta*cos(theta)/r
 #            print vx[i],vy[i] 
 #    return vx,vy
 
 #initial setup
-xr0 = np.linspace(minx,maxx,n) #init particle spacing (even)
+xr0= np.linspace(minx,maxx,n) 
 yr0 = np.linspace(minx,maxx,n)
-xr0,yr0 = cylboundpos(xr0,yr0)
+#xr0,yr0,index = cylboundpos(xr0,yr0)
 xr, yr = np.meshgrid(xr0,yr0)
 xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
+#courant safety factor
+#csf= 0.05 #variable? up to 0.3. for var timestep
+
+vx = np.zeros(n*n)
+vy = np.zeros(n*n)
+vx = np.array([vx.flatten()]).T
+vy = np.array([vy.flatten()]).T
+
+vhx = np.zeros(n*n) #v at half time step
+vhy = np.zeros(n*n)
+vhx = np.array([vhx.flatten()]).T
+vhy = np.array([vhy.flatten()]).T
+
+
+#mag=np.zeros(n*n,dtype=int) #magnitude of r vector
+
+#init analytical densities
+rho = np.ones(n*n)
+rho = np.array([rho.flatten()]).T
+#rho[0:30] = 15
+
+dx = xr[1]-xr[0] #init space between two particles
+dx = dx[0]
+h = dx*2.0 #smoothing length; decrease with fewer particles
+m = dx*rho[:] #mass per particle from density
+
+#init pressure
+
+k=1.0
+P = k*rho
+
+
+#speed of sound
+#cs = sqrt(Gamma*(P+B)/rho)
+cs=1/rho
+#cs=sqrt(Gamma*B/rho)
+
 
 (neighbs,neighb_loc) = find_neighbors(xr,yr,h,n)#obtain init neighbors
 rho = get_density(xr,yr,h,n,m,neighbs,neighb_loc)
+
 
 #timestep stuff
 t=0
@@ -420,7 +445,8 @@ while t < maxt:
     #dt = dts(csf,h,v,accels,cs)
    
     #output from timestep
-    Output(j,P,xr,yr,t)
-        
+    #Output(j,P,xr,yr,t)
+    POutput(xr,yr,P)
+            
     t = t + dt
     j+=1
