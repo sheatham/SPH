@@ -201,9 +201,9 @@ def get_visc(xr,yr,h,vx,vy,rho,cs,neighbs,neighb_loc):
 
 #get acceleration for each particle
 def get_accel(n,neighbs,neighb_loc,press,rho,m,xr,yr,h):   
-    xaccels = np.zeros(n*n)
-    yaccels= np.zeros(n*n)   
-    for i in range(n*n):
+    xaccels = np.zeros(len(xr))#(n*n)
+    yaccels= np.zeros(len(xr))#(n*n)   
+    for i in range(len(xr)):#(n*n):
         for j in range(neighbs[i]):
             #rij = sqrt((xr[neighb_loc[i,j]]-xr[i])**2+(yr[neighb_loc[i,j]]-yr[i])**2)
             rijx = xr[neighb_loc[i,j]]-xr[i]
@@ -253,11 +253,11 @@ def Output(j,rho,xr,yr,t):
 #    yrs  = np.reshape(yr,(n,n))
 #    Ps = np.reshape(P,(n,n))
     mpl.clf()
-    mpl.contour(xrs,yrs,Ps,offset=-100, cmap=cm.coolwarm)
-    #mpl.plot(xr,yr,".")
+    #mpl.contour(xrs,yrs,Ps,offset=-100, cmap=cm.coolwarm)
+    mpl.plot(xr,yr,".")
     mpl.axis([-9,9,-9,9])
     pause(0.0001)
-    if j==1 or j % 1 == 0:
+    if j==1 or j % 10 == 0:
         jstr=str(j);
         while len(jstr)<4:
             jstr='0'+jstr
@@ -275,10 +275,11 @@ def POutput(xr,yr,P):
     Pi = rbf(xi, yi)
     
     mpl.clf()
-    mpl.imshow(Pi, vmin=P.min(), vmax=P.max(), origin='lower',extent=[xr.min(), xr.max(), yr.min(), yr.max()])
-    #mpl.scatter(xr, yr, c=P)
-    mpl.colorbar()
-    mpl.show()
+    mpl.plot(xr,yr,".")
+    #mpl.imshow(Pi, vmin=P.min(), vmax=P.max(), origin='lower',extent=[xr.min(), xr.max(), yr.min(), yr.max()])
+    mpl.axis([-9,9,-9,9])
+    #mpl.colorbar()
+    #mpl.show()
     pause(0.0001)
     if j==1 or j % 1 == 0:
         jstr=str(j);
@@ -306,7 +307,7 @@ def boundf(xaccels,yaccels,xr,yr):
 
 #cylindrical boundary
 def cylboundf(xaccels,yaccels,xr,yr):
-    kc = 20
+    kc = 100
     for i in range(len(xr)):
         if xr[i]**2+yr[i]**2 > maxx**2:
             if xr[i] < 0:
@@ -319,48 +320,51 @@ def cylboundf(xaccels,yaccels,xr,yr):
                 yaccels[i]=yaccels[i]-kc*yr[i]
     return xaccels, yaccels
 
-def cylboundpos(xr0,yr0):
-    index = []
+def cylboundpos(xr,yr):
     indexx = []
     indexy = []
-    for i in range(len(xr0)):
-        if xr0[i]**2+yr0[i]**2 > maxx**2:
-            indexx.append(xr0[i])
-            indexy.append(yr0[i])
-            index.append(i)
-    xr0 = np.delete(xr0, indexx)
-    yr0 = np.delete(yr0, indexy)
-    return xr0,yr0,index
+    i=len(xr)-1
+    while i >= 0:
+        if xr[i]**2+yr[i]**2 > maxx**2:
+            indexx.append(xr[i])
+            indexy.append(yr[i])            
+            xr = np.delete(xr, i)
+            yr = np.delete(yr, i)
+        i-=1
+    return xr,yr,indexx,indexy
          
 
-
-#def f(xr,yr,vx,vy):
-#    for i in range(len(xr)):
-#        r=sqrt((xr[i])**2+(yr[i])**2)
-#        theta = arctan(yr[i]/xr[i])
-#        vtheta=1000
-#        if r < maxx:
-#            vx[i] -= vtheta*sin(theta)/r
-#            vy[i] += vtheta*cos(theta)/r
-#            print vx[i],vy[i] 
-#    return vx,vy
+def f(xr,yr,vx,vy):
+    for i in range(len(xr)):
+        r=sqrt((xr[i])**2+(yr[i])**2)
+        theta = arctan(yr[i]/xr[i])
+        vtheta=1000
+        if r < maxx:
+            #print'before', vx[i],vy[i]
+            vx[i] -= vtheta*sin(theta)/r
+            vy[i] += cos(theta)/r
+            #print 'after',vx[i],vy[i] 
+    return vx,vy
 
 #initial setup
-xr0= np.linspace(minx,maxx,n) 
-yr0 = np.linspace(minx,maxx,n)
-#xr0,yr0,index = cylboundpos(xr0,yr0)
-xr, yr = np.meshgrid(xr0,yr0)
+xr= np.linspace(minx,maxx,n) 
+yr = np.linspace(minx,maxx,n)
+xr, yr = np.meshgrid(xr,yr)
+xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
+xr,yr,boundx,boundy = cylboundpos(xr,yr)
+#boundx,boundy = np.meshgrid(boundx,boundy)
+#boundx,boundy = np.array([boundx.flatten()]).T, np.array([boundy.flatten()]).T
 xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
 #courant safety factor
 #csf= 0.05 #variable? up to 0.3. for var timestep
 
-vx = np.zeros(n*n)
-vy = np.zeros(n*n)
+vx = np.zeros(len(xr)) #(n*n)
+vy = np.zeros(len(xr)) #(n*n)
 vx = np.array([vx.flatten()]).T
 vy = np.array([vy.flatten()]).T
 
-vhx = np.zeros(n*n) #v at half time step
-vhy = np.zeros(n*n)
+vhx = np.zeros(len(xr)) #(n*n)#v at half time step
+vhy = np.zeros(len(xr)) #(n*n)
 vhx = np.array([vhx.flatten()]).T
 vhy = np.array([vhy.flatten()]).T
 
@@ -368,7 +372,7 @@ vhy = np.array([vhy.flatten()]).T
 #mag=np.zeros(n*n,dtype=int) #magnitude of r vector
 
 #init analytical densities
-rho = np.ones(n*n)
+rho = np.ones(len(xr))#(n*n)
 rho = np.array([rho.flatten()]).T
 #rho[0:30] = 15
 
@@ -395,7 +399,7 @@ rho = get_density(xr,yr,h,n,m,neighbs,neighb_loc)
 
 #timestep stuff
 t=0
-dt=.01
+dt=.001
 maxt=5
 
 j=0
@@ -417,13 +421,14 @@ while t < maxt:
     vhx = np.array([vhx.flatten()]).T
     vhy = vhy + dt*yaccels
     vhy = np.array([vhy.flatten()]).T
+#    vhx,vhy = f(xr,yr,vhx,vhy)
     #energies = get_energy(n,neighbs,neighb_loc,v,r,P,rho,av,h)
     #energies = bcs(energies,boundary,0.0)
     
     #vel update
     vx = vhx + 0.5*dt*xaccels
     vy = vhy + 0.5*dt*yaccels
-    #vx,vy = f(xr,yr,vx,vy)
+    vx,vy = f(xr,yr,vx,vy)
     
     #position update
     xr = xr + dt*vhx
@@ -445,8 +450,8 @@ while t < maxt:
     #dt = dts(csf,h,v,accels,cs)
    
     #output from timestep
-    #Output(j,P,xr,yr,t)
-    POutput(xr,yr,P)
+    Output(j,P,xr,yr,t)
+    #POutput(xr,yr,P)
             
     t = t + dt
     j+=1
