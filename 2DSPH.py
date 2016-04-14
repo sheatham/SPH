@@ -12,7 +12,7 @@ import scipy.interpolate
 #init conditions & params#
 ##########################
 
-n = 40 #sqrt num particles
+n = 30 #sqrt num particles
 
 #length
 maxx = 5
@@ -257,7 +257,7 @@ def Output(j,rho,xr,yr,t):
     mpl.plot(xr,yr,".")
     mpl.axis([-9,9,-9,9])
     pause(0.0001)
-    if j==1 or j % 10 == 0:
+    if j==1 or j % 2 == 0:
         jstr=str(j);
         while len(jstr)<4:
             jstr='0'+jstr
@@ -275,11 +275,10 @@ def POutput(xr,yr,P):
     Pi = rbf(xi, yi)
     
     mpl.clf()
-    mpl.plot(xr,yr,".")
-    #mpl.imshow(Pi, vmin=P.min(), vmax=P.max(), origin='lower',extent=[xr.min(), xr.max(), yr.min(), yr.max()])
+    mpl.imshow(Pi, vmin=P.min(), vmax=P.max(), origin='lower',extent=[xr.min(), xr.max(), yr.min(), yr.max()])
     mpl.axis([-9,9,-9,9])
-    #mpl.colorbar()
-    #mpl.show()
+    mpl.colorbar()
+    mpl.show()
     pause(0.0001)
     if j==1 or j % 1 == 0:
         jstr=str(j);
@@ -307,7 +306,7 @@ def boundf(xaccels,yaccels,xr,yr):
 
 #cylindrical boundary
 def cylboundf(xaccels,yaccels,xr,yr):
-    kc = 100
+    kc = 3600
     for i in range(len(xr)):
         if xr[i]**2+yr[i]**2 > maxx**2:
             if xr[i] < 0:
@@ -335,14 +334,19 @@ def cylboundpos(xr,yr):
          
 
 def f(xr,yr,vx,vy):
-    for i in range(len(xr)):
-        r=sqrt((xr[i])**2+(yr[i])**2)
+    for i in range(len(vx)):
+        r=sqrt(xr[i]**2+yr[i]**2)
         theta = arctan(yr[i]/xr[i])
-        vtheta=1000
+        vtheta=.09
         if r < maxx:
+            if xr[i] >= 0:
             #print'before', vx[i],vy[i]
-            vx[i] -= vtheta*sin(theta)/r
-            vy[i] += cos(theta)/r
+                vx[i] -= vtheta*sin(theta)*r
+                vy[i] += vtheta*cos(theta)*r
+            elif xr[i]< 0:
+                vx[i] += vtheta*sin(theta)*r
+                vy[i] -= vtheta*cos(theta)*r
+            #vy[i] += vtheta*cos(theta)*(R-r)
             #print 'after',vx[i],vy[i] 
     return vx,vy
 
@@ -422,6 +426,7 @@ while t < maxt:
     vhy = vhy + dt*yaccels
     vhy = np.array([vhy.flatten()]).T
 #    vhx,vhy = f(xr,yr,vhx,vhy)
+
     #energies = get_energy(n,neighbs,neighb_loc,v,r,P,rho,av,h)
     #energies = bcs(energies,boundary,0.0)
     
