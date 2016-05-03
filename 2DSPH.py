@@ -1,56 +1,36 @@
-#!/usr/bin/env python
+#!/usr/bin/env   b
 #!/usr/bin/env python
 
-#1D SPH code
+#2D SPH code
 #equations from Monaghan 2005
 
 import sys
 import numpy as np
 import matplotlib.pyplot as mpl
 import scipy.interpolate
-##########################
-#init conditions & params#
-##########################
 
-n = 30 #sqrt num particles
+###########################
+####Variable Parameters####
+###########################
 
-#length
-maxx = 5
-minx = -maxx
+n = 60 #sqrt num particles
+maxx = 2 #radius
+omega = .5 #rotational velocity
+dt=.00001 #timestep; will decrease with increases in particle num, omega, kc. If you're getting a bug where
+# the particles are all moving very far inward before rotating, decrease dt. A little bit of init inward movement is ok.
+maxt=5 #total run time
+kc = 600000 #spring constant of boundary
 
-num = (maxx+abs(minx)) #number of grid boxes
-
-########################################
-#specific internal energy for ideal gas law formulation of pressure
-########################################
-
-#eps=np.zeros(n*n)
-#should there be an initial condition for energy?
-
-#gamma = 1.4
-
-#Alternate pressure equation from ideal gas law
-#P = (gamma-1.0)*rho*eps
-########################################
-########################################
-
-#File location parameters
-parentDir='/Users/sheacheatham/Research/2DSPH/run2/'
+#Output file location
+parentDir='/Users/sheacheatham/Research/2DSPH/run3'
 imgDir='2DSPH'
 
+minx = -maxx  
+num = (maxx+abs(minx)) #number of grid boxes for neighbs search
 
-# making the neighbs optimization grid. creates empty lists in which particles will be put.
-#length = int((abs(maxx)+abs(minx)))
-#for i in range(0,maxx):
-#    for j in range(0,maxx):
-#        gridname = "" #clear out the previous command
-#        gridname = "gridnum" + str(i) + str(j) + " = []"
-#        globals()[gridname] = []
-  
-##################
-#define functions#
-##################
-
+######################
+#### Functions #######
+######################
 #smoothing kernel: cubic spline
 def kernel(rij,h):
     q = rij/h
@@ -103,7 +83,7 @@ def find_neighbors(xr,yr,h,n):
     #creates a matrix i1[j1 j2] identifying which particle j's affect any give particle i.
     #                 i2[j1 j2]
   
-#this is the approach for creating a fixed grid and only checking neighbor grids   
+    #this approach creates a fixed grid and only checks neighbor gridboxes for particles   
     boxes = loc_particles(xr,yr);
     top, bottom, left, right = edge_boxes()
     checkboxes = []
@@ -128,7 +108,8 @@ def find_neighbors(xr,yr,h,n):
                         dist = sqrt((boxes[i][j][xs]-boxes[k][l][xs])**2+(boxes[i][j][ys]-boxes[k][l][ys])**2)
                         if dist < 2.0*h:
                             neighb_loc[boxes[i][j][2],neighbs[boxes[i][j][2]]] = boxes[k][l][2]
-                            neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its 'number'                   
+                            neighbs[boxes[i][j][2]]+=1 #i is the box, j is the particle, 2 gives its
+                            #floating'number' (the permanent number assigned to each particle)                   
                           
     return(neighbs,neighb_loc)        
 
@@ -148,7 +129,7 @@ def edge_boxes(): #gives box numbers for edge boxes
         right.append(right)
     return top, bottom, left, right
 
-#make grid, determine which box each particle should be put in
+#makes grid, determine which box each particle is in
 def loc_particles(xr,yr):
     boxes = [ [] for n in range(num*num) ]
     for i in range(len(xr)):
@@ -162,36 +143,33 @@ def loc_particles(xr,yr):
             ykey = maxx-1
         if ykey <= minx:
             ykey = minx+1
-        box = xkey- 10*ykey + 45 #this is specific to the maxx and minx values. don't mess with them.
+        box = xkey+ykey+1+(2*maxx + 2)*((maxx-1) - ykey) #gives box number, given xkey and ykey
         position=xr[i],yr[i],i
         boxes[box].append(position)
-    return  boxes
+    return boxes
 
 #get smoothed density
 def get_density(xr,yr,h,n,m,neighbs,neighb_loc):
     
-    avrho=np.zeros(n*n) 
-    for i in range(n*n):
+    avrho=np.zeros(len(xr)) 
+    for i in range(len(xr)):
         #for j in range(n):
         for j in range(neighbs[i]):
             rij = sqrt((xr[neighb_loc[i,j]]-xr[i])**2+(yr[neighb_loc[i,j]]-yr[i])**2)
             avrho[i]+= m[neighb_loc[i,j]]*kernel(rij,h)
     return avrho
 
-#get artificial viscosity for each paricle i w
+#get artificial viscosity for each paricle i w/
 #respect to each of its neighbors j
 def get_visc(xr,yr,h,vx,vy,rho,cs,neighbs,neighb_loc):
-    
     av = np.zeros((n*n,n*n))  
     #viscous constants
     alpha = 1.0
     beta = 2.0    
     for i in range(n*n):
-        #for j in range(n):
         for j in range(neighbs[i]):
             vij = sqrt((vx[i]-vx[neighb_loc[i,j]])**2 + (vy[i]-vy[neighb_loc[i,j]])**2) 
             rij = sqrt((xr[neighb_loc[i,j]]-xr[i])**2+(yr[neighb_loc[i,j]]-yr[i])**2)
-            #print vij, rij
             if (vij*rij < 0.):
                 mew = h * vij*rij/(rij**2 + (0.1*h)**2)
                 cij = 0.5*(cs[i]+cs[neighb_loc[i,j]]) 
@@ -201,61 +179,32 @@ def get_visc(xr,yr,h,vx,vy,rho,cs,neighbs,neighb_loc):
 
 #get acceleration for each particle
 def get_accel(n,neighbs,neighb_loc,press,rho,m,xr,yr,h):   
-    xaccels = np.zeros(len(xr))#(n*n)
-    yaccels= np.zeros(len(xr))#(n*n)   
-    for i in range(len(xr)):#(n*n):
+    xaccels = np.zeros(len(xr))
+    yaccels= np.zeros(len(xr))  
+    for i in range(len(xr)):
         for j in range(neighbs[i]):
-            #rij = sqrt((xr[neighb_loc[i,j]]-xr[i])**2+(yr[neighb_loc[i,j]]-yr[i])**2)
             rijx = xr[neighb_loc[i,j]]-xr[i]
-            rijy = yr[neighb_loc[i,j]]-yr[i] #not sure about this
+            rijy = yr[neighb_loc[i,j]]-yr[i]
             k = neighb_loc[i,j]
             kernx, kerny = gradkernel(rijx,rijy,h)
             xaccels[i] -= m[k] * (press[i]/rho[i]**2 + press[k]/rho[k]**2 + av[i,k]) * kernx
             yaccels[i] -= m[k] * (press[i]/rho[i]**2 + press[k]/rho[k]**2 + av[i,k]) * kerny
     return xaccels, yaccels
-    
-#get energy/dt
-#def get_energy(n,neighbs,neighb_loc,v,xr,yr,p,rho,av,h):  
-#    energies=np.zeros(n)   
-#    for i in range(n):
-#        #for j in range(n):
-#        for j in range(neighbs[i]):
-#            k=neighb_loc[i,j]
-#            vij = v[i]-v[k]
-#            rij=r[i]-r[k]
-#            #energies[i] += (p[i]/rho[i])*(m[k]/rho[k])*vij*drkernel(rij,h)
-#            energies[i] += 0.5*m[k]*((p[i]/rho[i]**2)+(p[k]/rho[k]**2)+av[i,k])*vij*drkernel(rij,h)           
-#    return energies
-
-#adjusting timestep
-#def dts(csf,h,v,accels,cs):
-#    odt = 1.0e0 #orig timestep
-    #dt = csf*h/(max(1,max(v)))
-    #if sqrt(h/max(np.fabs(accels))) < dt:
-    #    dt = sqrt(h/max(np.fabs(accels)))
-    #else:
-    #    if csf*h/max(cs) < dt:
-    #        dt = csf*h/max(cs)
-    #    else:
-    #        if min(csf*h/max(cs)) < dt:
-    #            dt = csf*h/max(cs)
-    #        else:
-    #            dt=dt  
-    #return abs(dt)
-    #dt = csf*h/max(cs)
-    #return np.fmin(1.1*odt,dt)
-#    return 0
 
 #saving images
 def Output(j,rho,xr,yr,t):
-    print(j,t,dt)
 #    xrs  = np.reshape(xr,(n,n))
 #    yrs  = np.reshape(yr,(n,n))
 #    Ps = np.reshape(P,(n,n))
+    mpl.figure(1)
     mpl.clf()
     #mpl.contour(xrs,yrs,Ps,offset=-100, cmap=cm.coolwarm)
+    #circle=mpl.Circle((0,0),maxx,color='b',fill=False)#if you want to see where the boundary is
     mpl.plot(xr,yr,".")
-    mpl.axis([-9,9,-9,9])
+    #mpl.gcf().gca().add_artist(circle)
+    mpl.axis('equal')
+    mpl.axis([minx-1,maxx+1,minx-1,maxx+1])
+    #mpl.axis('equal')
     pause(0.0001)
     if j==1 or j % 2 == 0:
         jstr=str(j);
@@ -265,18 +214,16 @@ def Output(j,rho,xr,yr,t):
         savefig(imgfile)
 
 def POutput(xr,yr,P):
-    print(j,t,dt)
     #set up interpolation points
-    xi, yi = np.linspace(xr.min(), xr.max(), 100), np.linspace(yr.min(), yr.max(), 100)
-    xi, yi = np.meshgrid(xi, yi)
-
+    xi, yi = np.linspace(minx, maxx, 100), np.linspace(minx, maxx, 100)
+    xi, yi = np.meshgrid(xi, yi)   
     #Interpolate
     rbf = scipy.interpolate.Rbf(xr, yr, P, function='linear')
     Pi = rbf(xi, yi)
-    
+    mpl.figure(2)
     mpl.clf()
-    mpl.imshow(Pi, vmin=P.min(), vmax=P.max(), origin='lower',extent=[xr.min(), xr.max(), yr.min(), yr.max()])
-    mpl.axis([-9,9,-9,9])
+    mpl.imshow(Pi, vmin=0, vmax=100, origin='lower',extent=[minx-1, maxx+1, minx-1, maxx+1])
+    mpl.axis('equal')
     mpl.colorbar()
     mpl.show()
     pause(0.0001)
@@ -284,42 +231,19 @@ def POutput(xr,yr,P):
         jstr=str(j);
         while len(jstr)<4:
             jstr='0'+jstr
-        imgfile=parentDir+imgDir+'img'+jstr+'.png'
+        imgfile=parentDir+'/press/'+imgDir+'Pressimg'+jstr+'.png'
         savefig(imgfile)
-
-def boundf(xaccels,yaccels,xr,yr):
-    kc = 300 #spring constant force for wall. The larger this number, the smaller the timestep has to be.
-    for i in range(len(xaccels)):
-        if (xr[i] > maxx):
-            xaccels[i]=xaccels[i]-kc*abs(xr[i])
-        elif (xr[i] < minx):
-            xaccels[i]=xaccels[i]+kc*abs(xr[i])
-        else:
-            xr[i]=xr[i]
-        if (yr[i] > maxx):
-            yaccels[i]=yaccels[i]-kc*abs(yr[i])
-        elif (yr[i] < minx):
-            yaccels[i]=yaccels[i]+kc*abs(yr[i])
-        else:
-            yr[i]=yr[i]
-    return xaccels, yaccels
-
+        
 #cylindrical boundary
 def cylboundf(xaccels,yaccels,xr,yr):
-    kc = 3600
     for i in range(len(xr)):
-        if xr[i]**2+yr[i]**2 > maxx**2:
-            if xr[i] < 0:
-                xaccels[i]=xaccels[i]+kc*abs(xr[i])
-            elif xr[i] > 0:
-                xaccels[i]=xaccels[i]-kc*xr[i]
-            if yr[i] < 0 :
-                yaccels[i] = yaccels[i]+kc*abs(yr[i])
-            elif yr[i] > 0:
-                yaccels[i]=yaccels[i]-kc*yr[i]
+        if xr[i]**2 > maxx**2-yr[i]**2:
+            xaccels[i]= xaccels[i]-kc*xr[i]
+        if yr[i]**2 > maxx**2-xr[i]**2:
+            yaccels[i] = yaccels[i]-kc*yr[i]
     return xaccels, yaccels
 
-def cylboundpos(xr,yr):
+def cylboundpos(xr,yr): #delete particles outside of the circle at t = 0
     indexx = []
     indexy = []
     i=len(xr)-1
@@ -330,55 +254,45 @@ def cylboundpos(xr,yr):
             xr = np.delete(xr, i)
             yr = np.delete(yr, i)
         i-=1
-    return xr,yr,indexx,indexy
+    return xr,yr
          
-
-def f(xr,yr,vx,vy):
+def f(xr,yr,vx,vy): #rotational forcing function
     for i in range(len(vx)):
         r=sqrt(xr[i]**2+yr[i]**2)
         theta = arctan(yr[i]/xr[i])
-        vtheta=.09
         if r < maxx:
             if xr[i] >= 0:
-            #print'before', vx[i],vy[i]
-                vx[i] -= vtheta*sin(theta)*r
-                vy[i] += vtheta*cos(theta)*r
+                vx[i] -= omega*sin(theta)*r
+                vy[i] += omega*cos(theta)*r
             elif xr[i]< 0:
-                vx[i] += vtheta*sin(theta)*r
-                vy[i] -= vtheta*cos(theta)*r
-            #vy[i] += vtheta*cos(theta)*(R-r)
-            #print 'after',vx[i],vy[i] 
+                vx[i] += omega*sin(theta)*r
+                vy[i] -= omega*cos(theta)*r
     return vx,vy
 
-#initial setup
+###############################
+########Initial setup##########
+###############################
+
 xr= np.linspace(minx,maxx,n) 
 yr = np.linspace(minx,maxx,n)
 xr, yr = np.meshgrid(xr,yr)
 xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
-xr,yr,boundx,boundy = cylboundpos(xr,yr)
-#boundx,boundy = np.meshgrid(boundx,boundy)
-#boundx,boundy = np.array([boundx.flatten()]).T, np.array([boundy.flatten()]).T
+xr,yr = cylboundpos(xr,yr)
 xr, yr = np.array([xr.flatten()]).T, np.array([yr.flatten()]).T
-#courant safety factor
-#csf= 0.05 #variable? up to 0.3. for var timestep
 
-vx = np.zeros(len(xr)) #(n*n)
-vy = np.zeros(len(xr)) #(n*n)
+vx = np.zeros(len(xr))
+vy = np.zeros(len(xr)) 
 vx = np.array([vx.flatten()]).T
 vy = np.array([vy.flatten()]).T
 
-vhx = np.zeros(len(xr)) #(n*n)#v at half time step
-vhy = np.zeros(len(xr)) #(n*n)
+vhx = np.zeros(len(xr)) #vs at half time step
+vhy = np.zeros(len(xr))
 vhx = np.array([vhx.flatten()]).T
 vhy = np.array([vhy.flatten()]).T
-
-
-#mag=np.zeros(n*n,dtype=int) #magnitude of r vector
 
 #init analytical densities
 rho = np.ones(len(xr))#(n*n)
 rho = np.array([rho.flatten()]).T
-#rho[0:30] = 15
 
 dx = xr[1]-xr[0] #init space between two particles
 dx = dx[0]
@@ -386,34 +300,30 @@ h = dx*2.0 #smoothing length; decrease with fewer particles
 m = dx*rho[:] #mass per particle from density
 
 #init pressure
-
 k=1.0
 P = k*rho
 
-
 #speed of sound
-#cs = sqrt(Gamma*(P+B)/rho)
 cs=1/rho
-#cs=sqrt(Gamma*B/rho)
-
 
 (neighbs,neighb_loc) = find_neighbors(xr,yr,h,n)#obtain init neighbors
 rho = get_density(xr,yr,h,n,m,neighbs,neighb_loc)
 
-
 #timestep stuff
 t=0
-dt=.001
-maxt=5
-
 j=0
 saveImg=1
 
-# time step stuff:
+#Add some noise to address particle condensing bug
+noise = .01*np.random.normal(0,1,len(xr))
+noise = np.array([noise.flatten()]).T
+
+#### Algorithm #####
+
 while t < maxt:
     
     #initialize vars:
-    av = get_visc(xr,yr,h,vx,vy,rho,cs,neighbs,neighb_loc) #artificial viscosity
+    av = get_visc(xr,yr,h,vx,vy,rho,cs,neighbs,neighb_loc)
     
     xaccels, yaccels = get_accel(n,neighbs,neighb_loc,P,rho,m,xr,yr,h)
     xaccels = np.array([xaccels.flatten()]).T
@@ -423,17 +333,13 @@ while t < maxt:
     #halfstep update
     vhx = vhx + dt*xaccels #v at t-(dt/2) to v at t+(dt/2)
     vhx = np.array([vhx.flatten()]).T
-    vhy = vhy + dt*yaccels
+    vhy = vhy+ dt*yaccels
     vhy = np.array([vhy.flatten()]).T
-#    vhx,vhy = f(xr,yr,vhx,vhy)
+    vhx,vhy = f(xr,yr,vhx,vhy)
 
-    #energies = get_energy(n,neighbs,neighb_loc,v,r,P,rho,av,h)
-    #energies = bcs(energies,boundary,0.0)
-    
     #vel update
     vx = vhx + 0.5*dt*xaccels
     vy = vhy + 0.5*dt*yaccels
-    vx,vy = f(xr,yr,vx,vy)
     
     #position update
     xr = xr + dt*vhx
@@ -448,15 +354,10 @@ while t < maxt:
     #pressure update
     P = k*rho
     
-    #sound speed update
-    #cs=sqrt(Gamma*B/rho)
-    
-    #time step update
-    #dt = dts(csf,h,v,accels,cs)
-   
-    #output from timestep
+    #output
     Output(j,P,xr,yr,t)
-    #POutput(xr,yr,P)
-            
+    POutput(xr,yr,P)
+    print(j,t,dt)
+    
     t = t + dt
     j+=1
