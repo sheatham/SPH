@@ -22,7 +22,7 @@ maxt=5 #total run time
 kc = 600000 #spring constant of boundary
 
 #Output file location
-parentDir='/Users/sheacheatham/Research/2DSPH/run3'
+parentDir= '' #'/Users/sheacheatham/Research/2DSPH/run3'
 imgDir='2DSPH'
 
 minx = -maxx  
